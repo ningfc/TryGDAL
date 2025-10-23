@@ -396,7 +396,80 @@ class PerformanceTestDemo:
         print(f"  ✓ 当前macOS环境适合3万要素以下的测试")
         print(f"  ⚠️ 百万要素测试需要Linux服务器环境")
         print(f"  ⚠️ 建议使用分批处理策略处理大数据")
-        print(f"  ⚠️ 考虑使用流式处理减少内存使用")
+        print(f"  ⚠️ 建议使用流式处理减少内存使用")
+
+def offer_cleanup(output_dir):
+    """询问用户是否清理测试数据"""
+    print(f"\n" + "="*50)
+    print("数据清理选项")
+    print("="*50)
+    
+    if not os.path.exists(output_dir):
+        print("📁 测试目录不存在，无需清理")
+        return
+    
+    # 统计测试文件
+    test_files = []
+    total_size = 0
+    
+    for file in os.listdir(output_dir):
+        file_path = os.path.join(output_dir, file)
+        if os.path.isfile(file_path) and (file.endswith(('.shp', '.gpkg')) or 
+                                         file.endswith(('.shx', '.dbf', '.prj'))):
+            test_files.append(file_path)
+            total_size += os.path.getsize(file_path)
+    
+    if not test_files:
+        print("📁 没有发现测试数据文件，无需清理")
+        return
+    
+    print(f"📊 测试数据统计:")
+    print(f"  测试文件数量: {len(test_files)} 个")
+    print(f"  占用磁盘空间: {format_size(total_size)}")
+    print(f"  存储位置: {output_dir}")
+    
+    print(f"\n📁 文件列表:")
+    for file_path in sorted(test_files):
+        file_name = os.path.basename(file_path)
+        size = os.path.getsize(file_path)
+        print(f"  📄 {file_name:25} {format_size(size):>10}")
+    
+    try:
+        choice = input(f"\n是否清理测试数据? [y/N]: ").strip().lower()
+        
+        if choice == 'y':
+            deleted_count = 0
+            deleted_size = 0
+            
+            for file_path in test_files:
+                try:
+                    size = os.path.getsize(file_path)
+                    os.remove(file_path)
+                    deleted_count += 1
+                    deleted_size += size
+                    print(f"  ✅ 已删除: {os.path.basename(file_path)}")
+                except Exception as e:
+                    print(f"  ❌ 删除失败: {os.path.basename(file_path)} - {e}")
+            
+            print(f"\n📊 清理结果:")
+            print(f"  删除文件数量: {deleted_count} 个")
+            print(f"  释放磁盘空间: {format_size(deleted_size)}")
+        else:
+            print("✅ 保留测试数据")
+            
+    except KeyboardInterrupt:
+        print("\n⚠️  清理操作被取消")
+
+def format_size(size_bytes):
+    """格式化文件大小"""
+    if size_bytes < 1024:
+        return f"{size_bytes} B"
+    elif size_bytes < 1024 * 1024:
+        return f"{size_bytes / 1024:.1f} KB"
+    elif size_bytes < 1024 * 1024 * 1024:
+        return f"{size_bytes / (1024 * 1024):.1f} MB"
+    else:
+        return f"{size_bytes / (1024 * 1024 * 1024):.1f} GB"
 
 def main():
     """主函数"""
@@ -408,6 +481,9 @@ def main():
         demo = PerformanceTestDemo()
         results = demo.test_performance()
         print(f"\n✅ 演示测试完成!")
+        
+        # 询问是否清理数据
+        offer_cleanup(demo.output_dir)
         
     except KeyboardInterrupt:
         print(f"\n⚠️  测试被中断")

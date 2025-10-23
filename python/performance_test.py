@@ -523,10 +523,29 @@ def analyze_results(results):
     print(f"• 大数据量场景 → 根据具体测试结果选择")
     print(f"• Web应用 → 优先考虑 GeoPackage")
 
+def offer_cleanup():
+    """提供数据清理选项"""
+    try:
+        from test_data_cleaner import full_cleanup_current_dir
+        
+        print(f"\n{'='*50}")
+        print(f"🧹 测试完成！是否清理生成的测试数据和报告？")
+        
+        choice = input(f"清理所有测试文件? (y/n): ").strip().lower()
+        if choice in ['y', 'yes', '是', '1']:
+            full_cleanup_current_dir(auto_confirm=True)
+        else:
+            print(f"⚠️  保留测试文件")
+    except ImportError:
+        print(f"⚠️  清理模块未找到，请手动清理测试数据")
+    except KeyboardInterrupt:
+        print(f"\n⚠️  清理操作被取消")
+
 if __name__ == "__main__":
     try:
         results = performance_test()
         analyze_results(results)
+        offer_cleanup()
         
     except Exception as e:
         print(f"测试过程中发生错误: {e}")

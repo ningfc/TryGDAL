@@ -472,10 +472,84 @@ def generate_detailed_report(all_results, output_dir):
     
     print(f"\n详细报告已生成: {report_path}")
 
+def offer_data_cleanup():
+    """询问用户是否清理测试数据"""
+    print(f"\n" + "="*50)
+    print("数据清理选项")
+    print("="*50)
+    
+    output_dir = "/Users/fangchaoning/Code/gdal/TryGDAL/python/test_output/comprehensive_perf"
+    
+    if not os.path.exists(output_dir):
+        print("📁 测试目录不存在，无需清理")
+        return
+    
+    # 统计测试文件
+    test_files = []
+    total_size = 0
+    
+    for file in os.listdir(output_dir):
+        file_path = os.path.join(output_dir, file)
+        if os.path.isfile(file_path):
+            test_files.append(file_path)
+            total_size += os.path.getsize(file_path)
+    
+    if not test_files:
+        print("📁 没有发现测试文件")
+        return
+    
+    print(f"📊 测试数据统计:")
+    print(f"  文件数量: {len(test_files)} 个")
+    print(f"  占用空间: {format_size(total_size)}")
+    
+    print(f"\n📁 文件列表:")
+    for file_path in sorted(test_files):
+        file_name = os.path.basename(file_path)
+        size = os.path.getsize(file_path)
+        print(f"  📄 {file_name:30} {format_size(size):>10}")
+    
+    try:
+        choice = input(f"\n选择清理选项 [1=保留全部, 2=清理数据, 3=清理全部]: ").strip()
+        
+        if choice == '2':
+            # 只清理测试数据，保留报告
+            data_files = [f for f in test_files if not f.endswith('.md')]
+            cleanup_files(data_files, "测试数据")
+        elif choice == '3':
+            # 清理所有文件
+            cleanup_files(test_files, "所有文件")
+        else:
+            print("✅ 保留所有文件")
+            
+    except KeyboardInterrupt:
+        print("\n⚠️  清理操作被取消")
+
+def cleanup_files(file_list, description):
+    """清理指定文件"""
+    deleted_count = 0
+    deleted_size = 0
+    
+    for file_path in file_list:
+        try:
+            size = os.path.getsize(file_path)
+            os.remove(file_path)
+            deleted_count += 1
+            deleted_size += size
+            print(f"  ✅ 已删除: {os.path.basename(file_path)}")
+        except Exception as e:
+            print(f"  ❌ 删除失败: {os.path.basename(file_path)} - {e}")
+    
+    print(f"\n📊 清理结果 ({description}):")
+    print(f"  删除文件: {deleted_count} 个")
+    print(f"  释放空间: {format_size(deleted_size)}")
+
 if __name__ == "__main__":
     try:
         results = comprehensive_performance_test()
         print(f"\n✓ 全面性能测试完成！")
+        
+        # 询问是否清理数据
+        offer_data_cleanup()
         
     except Exception as e:
         print(f"测试失败: {e}")

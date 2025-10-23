@@ -263,5 +263,24 @@ def main():
         print(f"程序执行出错: {e}")
         sys.exit(1)
 
+def offer_cleanup():
+    """提供数据清理选项"""
+    try:
+        from test_data_cleaner import quick_cleanup_current_dir
+        
+        print(f"\n{'='*50}")
+        print(f"🧹 测试完成！是否清理生成的测试数据？")
+        
+        choice = input(f"清理测试数据文件? (y/n): ").strip().lower()
+        if choice in ['y', 'yes', '是', '1']:
+            quick_cleanup_current_dir(auto_confirm=True)
+        else:
+            print(f"⚠️  保留测试数据文件")
+    except ImportError:
+        print(f"⚠️  清理模块未找到，请手动清理测试数据")
+    except KeyboardInterrupt:
+        print(f"\n⚠️  清理操作被取消")
+
 if __name__ == "__main__":
     main()
+    offer_cleanup()

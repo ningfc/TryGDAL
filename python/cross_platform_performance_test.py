@@ -664,6 +664,9 @@ class CrossPlatformPerformanceTest:
         
         # 生成跨平台报告文件
         self.generate_cross_platform_report(all_results)
+        
+        # 询问是否清理测试数据
+        self.offer_data_cleanup(all_results)
     
     def print_platform_specific_analysis(self):
         """打印平台特定分析"""
@@ -730,6 +733,217 @@ class CrossPlatformPerformanceTest:
             
         except Exception as e:
             print(f"⚠️  报告生成失败: {e}")
+    
+    def offer_data_cleanup(self, all_results):
+        """询问用户是否清理测试数据"""
+        print(f"\n" + "="*60)
+        print("数据清理选项")
+        print("="*60)
+        
+        # 统计生成的文件
+        total_files = 0
+        total_size = 0
+        test_files = []
+        
+        for size in all_results.keys():
+            if 'formats' in all_results[size]:
+                for format_name in self.test_formats:
+                    if format_name == 'Shapefile':
+                        file_path = self.output_dir / f"lines_{size}.shp"
+                        if file_path.exists():
+                            test_files.append(self.get_shapefile_files(str(file_path)))
+                            total_size += self.get_file_size_cross_platform(format_name, str(file_path))
+                    else:  # GeoPackage
+                        file_path = self.output_dir / f"lines_{size}.gpkg"
+                        if file_path.exists():
+                            test_files.append([str(file_path)])
+                            total_size += self.get_file_size_cross_platform(format_name, str(file_path))
+        
+        # 扁平化文件列表
+        all_files = []
+        for file_group in test_files:
+            all_files.extend(file_group)
+        
+        total_files = len(all_files)
+        
+        if total_files == 0:
+            print("📁 没有发现测试数据文件，无需清理")
+            return
+        
+        print(f"📊 测试数据统计:")
+        print(f"  测试文件数量: {total_files} 个")
+        print(f"  占用磁盘空间: {self.format_size(total_size)}")
+        print(f"  存储位置: {self.output_dir}")
+        
+        print(f"\n📁 生成的文件类型:")
+        shapefile_count = sum(1 for f in all_files if f.endswith(('.shp', '.shx', '.dbf', '.prj')))
+        gpkg_count = sum(1 for f in all_files if f.endswith('.gpkg'))
+        
+        if shapefile_count > 0:
+            print(f"  Shapefile相关文件: {shapefile_count} 个")
+        if gpkg_count > 0:
+            print(f"  GeoPackage文件: {gpkg_count} 个")
+        
+        print(f"\n🗂️  详细文件列表:")
+        for file_path in sorted(all_files):
+            try:
+                size = os.path.getsize(file_path)
+                print(f"  📄 {os.path.basename(file_path):25} {self.format_size(size):>10}")
+            except OSError:
+                print(f"  📄 {os.path.basename(file_path):25} {'(已删除)':>10}")
+        
+        # 清理选项
+        print(f"\n🧹 清理选项:")
+        print(f"  1. 保留所有数据 (继续分析)")
+        print(f"  2. 仅清理测试数据文件 (保留报告)")
+        print(f"  3. 清理所有文件 (包括报告)")
+        print(f"  4. 清理整个测试目录")
+        
+        try:
+            choice = input(f"\n请选择清理选项 [1-4] (默认: 1): ").strip()
+            
+            if choice == '' or choice == '1':
+                print("✅ 保留所有数据，便于后续分析")
+                return
+            elif choice == '2':
+                self.cleanup_test_data_only(all_files)
+            elif choice == '3':
+                self.cleanup_all_files()
+            elif choice == '4':
+                self.cleanup_entire_directory()
+            else:
+                print("⚠️  无效选择，保留所有数据")
+                
+        except KeyboardInterrupt:
+            print("\n⚠️  清理操作被取消，保留所有数据")
+        except Exception as e:
+            print(f"⚠️  清理操作失败: {e}")
+    
+    def get_shapefile_files(self, shp_path):
+        """获取Shapefile相关的所有文件"""
+        base_name = os.path.splitext(shp_path)[0]
+        shapefile_extensions = ['.shp', '.shx', '.dbf', '.prj', '.cpg']
+        files = []
+        
+        for ext in shapefile_extensions:
+            file_path = base_name + ext
+            if os.path.exists(file_path):
+                files.append(file_path)
+        
+        return files
+    
+    def cleanup_test_data_only(self, test_files):
+        """仅清理测试数据文件，保留报告"""
+        print(f"\n🧹 清理测试数据文件...")
+        
+        deleted_count = 0
+        deleted_size = 0
+        
+        for file_path in test_files:
+            try:
+                if os.path.exists(file_path):
+                    size = os.path.getsize(file_path)
+                    os.remove(file_path)
+                    deleted_count += 1
+                    deleted_size += size
+                    print(f"  ✅ 已删除: {os.path.basename(file_path)}")
+            except Exception as e:
+                print(f"  ❌ 删除失败: {os.path.basename(file_path)} - {e}")
+        
+        print(f"\n📊 清理结果:")
+        print(f"  删除文件数量: {deleted_count} 个")
+        print(f"  释放磁盘空间: {self.format_size(deleted_size)}")
+        print(f"  保留报告文件以便后续分析")
+        
+        # 检查是否还有报告文件
+        report_files = list(self.output_dir.glob("*.md"))
+        if report_files:
+            print(f"  📋 保留的报告: {len(report_files)} 个")
+            for report in report_files:
+                print(f"    📄 {report.name}")
+    
+    def cleanup_all_files(self):
+        """清理所有文件，包括报告"""
+        print(f"\n🧹 清理所有文件...")
+        
+        if not self.output_dir.exists():
+            print("📁 测试目录不存在，无需清理")
+            return
+        
+        deleted_count = 0
+        deleted_size = 0
+        
+        # 删除目录中的所有文件
+        for file_path in self.output_dir.iterdir():
+            if file_path.is_file():
+                try:
+                    size = file_path.stat().st_size
+                    file_path.unlink()
+                    deleted_count += 1
+                    deleted_size += size
+                    print(f"  ✅ 已删除: {file_path.name}")
+                except Exception as e:
+                    print(f"  ❌ 删除失败: {file_path.name} - {e}")
+        
+        print(f"\n📊 清理结果:")
+        print(f"  删除文件数量: {deleted_count} 个")
+        print(f"  释放磁盘空间: {self.format_size(deleted_size)}")
+        
+        # 如果目录为空，询问是否删除目录
+        if not any(self.output_dir.iterdir()):
+            try:
+                confirm = input(f"目录已为空，是否删除目录? [y/N]: ").strip().lower()
+                if confirm == 'y':
+                    self.output_dir.rmdir()
+                    print(f"  ✅ 已删除目录: {self.output_dir}")
+                else:
+                    print(f"  📁 保留空目录: {self.output_dir}")
+            except Exception as e:
+                print(f"  ⚠️  目录删除失败: {e}")
+    
+    def cleanup_entire_directory(self):
+        """清理整个测试目录"""
+        print(f"\n🧹 清理整个测试目录...")
+        
+        if not self.output_dir.exists():
+            print("📁 测试目录不存在，无需清理")
+            return
+        
+        # 警告用户
+        print(f"⚠️  警告: 这将删除整个目录及其所有内容!")
+        print(f"📁 目录路径: {self.output_dir}")
+        
+        try:
+            confirm = input(f"确认删除整个目录? 输入 'DELETE' 确认: ").strip()
+            if confirm == 'DELETE':
+                import shutil
+                
+                # 计算目录大小
+                total_size = 0
+                file_count = 0
+                
+                for root, dirs, files in os.walk(self.output_dir):
+                    for file in files:
+                        file_path = os.path.join(root, file)
+                        try:
+                            total_size += os.path.getsize(file_path)
+                            file_count += 1
+                        except OSError:
+                            pass
+                
+                # 删除目录
+                shutil.rmtree(self.output_dir)
+                
+                print(f"  ✅ 已删除目录: {self.output_dir}")
+                print(f"  📊 清理统计:")
+                print(f"    删除文件数量: {file_count} 个")
+                print(f"    释放磁盘空间: {self.format_size(total_size)}")
+                
+            else:
+                print(f"  ⚠️  清理操作已取消")
+                
+        except Exception as e:
+            print(f"  ❌ 目录删除失败: {e}")
 
 def main():
     """主函数"""

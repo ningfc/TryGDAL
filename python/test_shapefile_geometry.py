@@ -497,6 +497,24 @@ def analyze_multipolygon_support():
     print("- 空间查询更高效")
     print("- 符合GIS数据建模规范")
 
+def offer_cleanup():
+    """提供数据清理选项"""
+    try:
+        from test_data_cleaner import quick_cleanup_current_dir
+        
+        print(f"\n{'='*50}")
+        print(f"🧹 测试完成！是否清理生成的测试数据？")
+        
+        choice = input(f"清理测试数据文件? (y/n): ").strip().lower()
+        if choice in ['y', 'yes', '是', '1']:
+            quick_cleanup_current_dir(auto_confirm=True)
+        else:
+            print(f"⚠️  保留测试数据文件")
+    except ImportError:
+        print(f"⚠️  清理模块未找到，请手动清理测试数据")
+    except KeyboardInterrupt:
+        print(f"\n⚠️  清理操作被取消")
+
 if __name__ == "__main__":
     results = test_shapefile_geometry_support()
     analyze_multipolygon_support()
@@ -507,3 +525,5 @@ if __name__ == "__main__":
     print("包括多部分面（MultiPolygon），非常适合存储复杂的地理数据")
     print("唯一不支持的是 GeometryCollection（混合几何集合）")
     print("这是因为 Shapefile 要求单个文件中的所有要素具有相同的几何类型")
+    
+    offer_cleanup()
